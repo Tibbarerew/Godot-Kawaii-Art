@@ -4,6 +4,7 @@ const BUILTIN_IMAGES: Array[String] = [
 	"res://Assets/bunny.png",
 	"res://Assets/deer.png",
 	"res://Assets/fox.png",
+	"res://Assets/ki_logo.png",
 	"res://Assets/koala.png",
 	"res://Assets/penguin.png",
 	"res://Assets/pig.png",
@@ -385,6 +386,7 @@ func _apply_coloring_book_style() -> void:
 			var gx_r: float = 0.0; var gy_r: float = 0.0
 			var gx_g: float = 0.0; var gy_g: float = 0.0
 			var gx_b: float = 0.0; var gy_b: float = 0.0
+			
 			var ki: int = 0
 			for ky in range(-1, 2):
 				for kx in range(-1, 2):

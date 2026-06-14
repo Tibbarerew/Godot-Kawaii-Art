@@ -493,7 +493,10 @@ func _render_pbn_overlay() -> void:
 	if pbn_regions.is_empty() or coloring_image == null:
 		return
 	var w: int = coloring_image.get_width()
+	var h: int = coloring_image.get_height()
 	var font_size: int = clampi(int(float(w) * zoom_level) / 50, 9, 18)
+	var img_w: float = float(w) * zoom_level
+	var img_h: float = float(h) * zoom_level
 	for region: Array in pbn_regions:
 		var color_num: int = region[0]
 		var cx: int = region[1]
@@ -505,8 +508,10 @@ func _render_pbn_overlay() -> void:
 		lbl.add_theme_color_override("font_outline_color", Color.WHITE)
 		lbl.add_theme_constant_override("outline_size", 3)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var half: float = float(font_size) * 0.4 * float(str(color_num).length())
-		lbl.position = Vector2(float(cx) * zoom_level - half, float(cy) * zoom_level - float(font_size) * 0.6)
+		var char_w: float = float(font_size) * 0.6 * float(str(color_num).length())
+		var lx: float = clampf(float(cx) * zoom_level - char_w * 0.5, 0.0, img_w - char_w)
+		var ly: float = clampf(float(cy) * zoom_level - float(font_size) * 0.5, 0.0, img_h - float(font_size))
+		lbl.position = Vector2(lx, ly)
 		pbn_overlay.add_child(lbl)
 
 func _build_color_map(colors: Array[Color]) -> PackedInt32Array:
@@ -540,7 +545,7 @@ func _build_color_map(colors: Array[Color]) -> PackedInt32Array:
 func _find_region_centroids(color_map: PackedInt32Array, w: int, h: int) -> Array:
 	var visited: PackedByteArray = PackedByteArray()
 	visited.resize(w * h)
-	var min_size: int = maxi(100, (w * h) / 400)
+	var min_size: int = maxi(50, (w * h) / 2000)
 	var regions: Array = []
 	for sy in h:
 		for sx in w:
@@ -555,6 +560,7 @@ func _find_region_centroids(color_map: PackedInt32Array, w: int, h: int) -> Arra
 			var sum_x: int = sx
 			var sum_y: int = sy
 			var count: int = 1
+			var samples: Array[Vector2i] = [Vector2i(sx, sy)]
 			while stack.size() > 0:
 				var pos: Vector2i = stack.pop_back()
 				var bx: int = pos.x
@@ -581,10 +587,41 @@ func _find_region_centroids(color_map: PackedInt32Array, w: int, h: int) -> Arra
 					sum_x += nx
 					sum_y += ny
 					count += 1
+					if count % 30 == 0:
+						samples.append(Vector2i(nx, ny))
 					stack.append(Vector2i(nx, ny))
-			if count >= min_size:
-				regions.append([color_num, sum_x / count, sum_y / count])
+			if count < min_size:
+				continue
+			# Score each candidate by interior clearance; pick the fattest spot.
+			# Include the mean centroid as a candidate (clamped to image bounds).
+			var cx: int = clampi(sum_x / count, 0, w - 1)
+			var cy: int = clampi(sum_y / count, 0, h - 1)
+			var best_pos := Vector2i(cx, cy)
+			var best_r: int = _interior_radius(color_map, w, h, cx, cy, color_num)
+			for s: Vector2i in samples:
+				var r: int = _interior_radius(color_map, w, h, s.x, s.y, color_num)
+				if r > best_r:
+					best_r = r
+					best_pos = s
+			# Skip regions too thin to show a visible label (corridors, hairlines).
+			if best_r < 3:
+				continue
+			regions.append([color_num, best_pos.x, best_pos.y])
 	return regions
+
+func _interior_radius(color_map: PackedInt32Array, w: int, h: int, x: int, y: int, color_num: int) -> int:
+	if x < 0 or x >= w or y < 0 or y >= h or color_map[y * w + x] != color_num:
+		return 0
+	var min_r: int = 20
+	var dirs: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for d: Vector2i in dirs:
+		for r in range(1, 21):
+			var nx: int = x + d.x * r
+			var ny: int = y + d.y * r
+			if nx < 0 or nx >= w or ny < 0 or ny >= h or color_map[ny * w + nx] != color_num:
+				min_r = mini(min_r, r - 1)
+				break
+	return min_r
 
 func _apply_zoom() -> void:
 	if coloring_image == null:

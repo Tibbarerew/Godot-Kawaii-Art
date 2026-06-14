@@ -385,7 +385,7 @@ func _on_canvas_input(event: InputEvent) -> void:
 
 	if event is InputEventScreenTouch:
 		var st: InputEventScreenTouch = event as InputEventScreenTouch
-		var local_pos: Vector2 = texture_rect.get_global_transform().affine_inverse().xform(st.position)
+		var local_pos: Vector2 = texture_rect.get_global_transform().affine_inverse() * (st.position)
 		if st.pressed:
 			_active_touches[st.index] = local_pos
 			if st.index == 0:
@@ -404,7 +404,7 @@ func _on_canvas_input(event: InputEvent) -> void:
 
 	if event is InputEventScreenDrag:
 		var sd: InputEventScreenDrag = event as InputEventScreenDrag
-		var local_pos: Vector2 = texture_rect.get_global_transform().affine_inverse().xform(sd.position)
+		var local_pos: Vector2 = texture_rect.get_global_transform().affine_inverse() * (sd.position)
 		_active_touches[sd.index] = local_pos
 		if _active_touches.size() == 1:
 			scroll_container.scroll_horizontal -= int(sd.relative.x)

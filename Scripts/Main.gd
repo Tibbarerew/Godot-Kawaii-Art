@@ -169,12 +169,9 @@ func _build_ui() -> void:
 	samples_grid.add_theme_constant_override("v_separation", 4)
 	right.add_child(samples_grid)
 	for img_path: String in BUILTIN_IMAGES:
-		var res := load(img_path) as Texture2D
-		if res == null:
+		var thumb := Image.load_from_file(ProjectSettings.globalize_path(img_path))
+		if thumb == null:
 			continue
-		var thumb: Image = res.get_image().duplicate()
-		if thumb.is_compressed():
-			thumb.decompress()
 		_flatten_alpha(thumb)
 		thumb.resize(56, 56, Image.INTERPOLATE_LANCZOS)
 		var btn := Button.new()
@@ -318,13 +315,10 @@ func _on_save_path_selected(path: String) -> void:
 		status_label.text = "Save failed (error %d)" % err
 
 func _load_builtin(path: String) -> void:
-	var res := load(path) as Texture2D
-	if res == null:
+	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if img == null:
 		status_label.text = "Failed to load built-in image."
 		return
-	var img: Image = res.get_image().duplicate()
-	if img.is_compressed():
-		img.decompress()
 	_flatten_alpha(img)
 	canvas_image = img
 	_apply_coloring_book_style()
@@ -507,9 +501,7 @@ func _paint_at(local_pos: Vector2) -> void:
 	_flood_fill(px, py, target)
 	_refresh_texture()
 
-func _flood_fill(start_x: int, start_y: int, target: Color) -> void:
-	if _colors_close(target, selected_color):
-		return
+func _flood_fill(start_x: int, start_y: int, _target: Color) -> void:
 	var w := coloring_image.get_width()
 	var h := coloring_image.get_height()
 	var visited := PackedByteArray()
@@ -526,11 +518,7 @@ func _flood_fill(start_x: int, start_y: int, target: Color) -> void:
 			continue
 		visited[idx] = 1
 		var c := coloring_image.get_pixel(x, y)
-		# Stop at black outline pixels
 		if c.r < 0.05 and c.g < 0.05 and c.b < 0.05:
-			continue
-		# Stop at different-colored regions (acts as a fill boundary)
-		if not _colors_close(c, target):
 			continue
 		coloring_image.set_pixel(x, y, Color(selected_color.r, selected_color.g, selected_color.b, c.a))
 		stack.append(Vector2i(x + 1, y))

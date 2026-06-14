@@ -1,5 +1,14 @@
 extends Control
 
+const BUILTIN_IMAGES: Array[String] = [
+	"res://Assets/bunny.png",
+	"res://Assets/deer.png",
+	"res://Assets/fox.png",
+	"res://Assets/koala.png",
+	"res://Assets/penguin.png",
+	"res://Assets/pig.png",
+]
+
 const PALETTE_COLORS: Array[Color] = [
 	Color(1, 0, 0), Color(1, 0.5, 0), Color(1, 1, 0), Color(0.5, 1, 0),
 	Color(0, 1, 0), Color(0, 1, 0.5), Color(0, 1, 1), Color(0, 0.5, 1),
@@ -148,6 +157,34 @@ func _build_ui() -> void:
 	right.add_theme_constant_override("separation", 6)
 	right_scroll_panel.add_child(right)
 
+	var samples_title := Label.new()
+	samples_title.text = "Sample Images"
+	samples_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	right.add_child(samples_title)
+
+	var samples_grid := GridContainer.new()
+	samples_grid.columns = 3
+	samples_grid.add_theme_constant_override("h_separation", 4)
+	samples_grid.add_theme_constant_override("v_separation", 4)
+	right.add_child(samples_grid)
+	for img_path: String in BUILTIN_IMAGES:
+		var res := load(img_path) as Texture2D
+		if res == null:
+			continue
+		var thumb: Image = res.get_image().duplicate()
+		if thumb.is_compressed():
+			thumb.decompress()
+		_flatten_alpha(thumb)
+		thumb.resize(56, 56, Image.INTERPOLATE_LANCZOS)
+		var btn := Button.new()
+		btn.icon = ImageTexture.create_from_image(thumb)
+		btn.custom_minimum_size = Vector2(64, 64)
+		btn.tooltip_text = img_path.get_file().get_basename()
+		btn.pressed.connect(_load_builtin.bind(img_path))
+		samples_grid.add_child(btn)
+
+	right.add_child(HSeparator.new())
+
 	var palette_title := Label.new()
 	palette_title.text = "Color Palette"
 	palette_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -259,6 +296,7 @@ func _on_file_selected(path: String) -> void:
 	if img == null:
 		status_label.text = "Failed to load: " + path.get_file()
 		return
+	_flatten_alpha(img)
 	canvas_image = img
 	_apply_coloring_book_style()
 	var colors: Array[Color] = _extract_image_colors(canvas_image)
@@ -277,6 +315,42 @@ func _on_save_path_selected(path: String) -> void:
 		status_label.text = "Saved to:\n" + path.get_file()
 	else:
 		status_label.text = "Save failed (error %d)" % err
+
+func _load_builtin(path: String) -> void:
+	var res := load(path) as Texture2D
+	if res == null:
+		status_label.text = "Failed to load built-in image."
+		return
+	var img: Image = res.get_image().duplicate()
+	if img.is_compressed():
+		img.decompress()
+	_flatten_alpha(img)
+	canvas_image = img
+	_apply_coloring_book_style()
+	var colors: Array[Color] = _extract_image_colors(canvas_image)
+	_populate_image_palette(colors)
+	pbn_regions.clear()
+	call_deferred("_fit_image_to_view")
+	if pbn_active:
+		call_deferred("_build_pbn_overlay")
+	status_label.text = path.get_file().get_basename() + " — tap to paint!"
+
+func _flatten_alpha(img: Image) -> void:
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	for y in h:
+		for x in w:
+			var c: Color = img.get_pixel(x, y)
+			if c.a < 1.0:
+				img.set_pixel(x, y, Color(
+					c.r * c.a + (1.0 - c.a),
+					c.g * c.a + (1.0 - c.a),
+					c.b * c.a + (1.0 - c.a),
+					1.0
+				))
 
 func _apply_coloring_book_style() -> void:
 	if canvas_image == null:

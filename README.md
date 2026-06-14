@@ -4,13 +4,13 @@ A kawaii coloring app built in Godot 4.6. Load any image, convert it to a colori
 
 ## Features
 
-- **Built-in sample images** — six kawaii animals (bunny, deer, fox, koala, penguin, pig) load with one tap
-- **Load your own image** — PNG, JPG, BMP, WEBP; transparent backgrounds are composited to white automatically
+- **Built-in sample images** — seven kawaii images (bunny, deer, fox, koala, penguin, pig, logo) load with one tap
+- **Load your own image** — PNG, JPG/JPEG, BMP, WEBP; transparent backgrounds are composited to white automatically
 - **Coloring-book conversion** — per-channel Sobel edge detection with dilation produces clean outlines
 - **Adjustable edge sensitivity** — slider (0.05–0.95) to tune outline thickness
 - **24-color kawaii palette** — swatches in the side panel; tap to select
 - **Image color extraction** — top 16 colors sampled from the loaded image, shown as numbered swatches
-- **Flood-fill painting** — tap/click any white or painted region to fill it; outlines and different-color regions act as boundaries
+- **Flood-fill painting** — tap/click any region to fill it with the selected color; outlines act as boundaries; painted regions can be recolored at any time
 - **Paint by Numbers mode** — toggle overlays numbered labels on each region using the image's color map; labels are placed at each region's fattest interior point
 - **Zoom** — mouse wheel, +/− buttons, or pinch-to-zoom on touch; Fit button to reset
 - **Pan** — scroll bars on desktop; single-finger drag on touch
@@ -45,7 +45,7 @@ Kawaii-Art/
 
 ## Running
 
-Open the project in Godot 4.3+ and press F5, or run `Scenes/Main.tscn` directly. The window starts maximized.
+Open the project in Godot 4.3+ and press F5, or run `Scenes/Main.tscn` directly. The window starts at 1280×720 and is freely resizable.
 
 ## MCP / Claude Code Integration
 

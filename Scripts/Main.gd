@@ -29,6 +29,11 @@ var pbn_overlay: Control = null
 var image_colors_cache: Array[Color] = []
 var pbn_regions: Array = []
 var zoom_level: float = 1.0
+var right_scroll_panel: ScrollContainer
+var _active_touches: Dictionary = {}
+var _tap_origin: Vector2 = Vector2.ZERO
+var _tap_time: int = 0
+var _pinch_last_dist: float = 0.0
 
 func _ready() -> void:
 	_build_ui()
@@ -41,7 +46,7 @@ func _build_ui() -> void:
 
 	# Toolbar
 	var toolbar := HBoxContainer.new()
-	toolbar.custom_minimum_size.y = 44
+	toolbar.custom_minimum_size.y = 48
 	toolbar.add_theme_constant_override("separation", 8)
 	vbox.add_child(toolbar)
 
@@ -104,6 +109,13 @@ func _build_ui() -> void:
 	fit_btn.pressed.connect(_fit_image_to_view)
 	toolbar.add_child(fit_btn)
 
+	var colors_btn := Button.new()
+	colors_btn.text = "Colors"
+	colors_btn.toggle_mode = true
+	colors_btn.button_pressed = true
+	colors_btn.toggled.connect(func(on: bool) -> void: right_scroll_panel.visible = on)
+	toolbar.add_child(colors_btn)
+
 	# Main split: canvas left, palette right
 	var hsplit := HSplitContainer.new()
 	hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -125,16 +137,16 @@ func _build_ui() -> void:
 	scroll_container.add_child(texture_rect)
 
 	# Right panel — scrollable so both palettes always fit
-	var right_scroll := ScrollContainer.new()
-	right_scroll.custom_minimum_size = Vector2(212, 0)
-	right_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	right_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	hsplit.add_child(right_scroll)
+	right_scroll_panel = ScrollContainer.new()
+	right_scroll_panel.custom_minimum_size = Vector2(212, 0)
+	right_scroll_panel.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	right_scroll_panel.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	hsplit.add_child(right_scroll_panel)
 
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_theme_constant_override("separation", 6)
-	right_scroll.add_child(right)
+	right_scroll_panel.add_child(right)
 
 	var palette_title := Label.new()
 	palette_title.text = "Color Palette"
@@ -357,19 +369,60 @@ func _on_clear_pressed() -> void:
 		status_label.text = "Colors reset."
 
 func _on_canvas_input(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton) or not (event as InputEventMouseButton).pressed:
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if not mb.pressed:
+			return
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom_by(1.25)
+			return
+		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_by(0.8)
+			return
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_paint_at(mb.position)
 		return
-	var mb: InputEventMouseButton = event as InputEventMouseButton
-	if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-		_zoom_by(1.25)
+
+	if event is InputEventScreenTouch:
+		var st: InputEventScreenTouch = event as InputEventScreenTouch
+		var local_pos: Vector2 = texture_rect.get_global_transform().affine_inverse().xform(st.position)
+		if st.pressed:
+			_active_touches[st.index] = local_pos
+			if st.index == 0:
+				_tap_origin = local_pos
+				_tap_time = Time.get_ticks_msec()
+			if _active_touches.size() >= 2:
+				_pinch_last_dist = 0.0
+		else:
+			if st.index == 0 and _active_touches.size() == 1:
+				var elapsed: float = float(Time.get_ticks_msec() - _tap_time) / 1000.0
+				if elapsed < 0.35 and local_pos.distance_to(_tap_origin) < 25.0:
+					_paint_at(_tap_origin)
+			_active_touches.erase(st.index)
+			_pinch_last_dist = 0.0
 		return
-	if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		_zoom_by(0.8)
+
+	if event is InputEventScreenDrag:
+		var sd: InputEventScreenDrag = event as InputEventScreenDrag
+		var local_pos: Vector2 = texture_rect.get_global_transform().affine_inverse().xform(sd.position)
+		_active_touches[sd.index] = local_pos
+		if _active_touches.size() == 1:
+			scroll_container.scroll_horizontal -= int(sd.relative.x)
+			scroll_container.scroll_vertical -= int(sd.relative.y)
+		elif _active_touches.size() >= 2:
+			var pos_a: Vector2 = _active_touches.values()[0]
+			var pos_b: Vector2 = _active_touches.values()[1]
+			var dist: float = pos_a.distance_to(pos_b)
+			if _pinch_last_dist > 10.0:
+				_zoom_by(dist / _pinch_last_dist)
+			_pinch_last_dist = dist
 		return
-	if mb.button_index != MOUSE_BUTTON_LEFT or coloring_image == null:
+
+func _paint_at(local_pos: Vector2) -> void:
+	if coloring_image == null:
 		return
-	var px: int = int(mb.position.x / zoom_level)
-	var py: int = int(mb.position.y / zoom_level)
+	var px: int = int(local_pos.x / zoom_level)
+	var py: int = int(local_pos.y / zoom_level)
 	if px < 0 or px >= coloring_image.get_width() or py < 0 or py >= coloring_image.get_height():
 		return
 	var target: Color = coloring_image.get_pixel(px, py)

@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+GameFeelFlow="*res://addons/game_feel_flow/core/game_feel_flow.gd"
 
 [display]
 
@@ -32,7 +33,7 @@ project/assembly_name="Kawaii-Art"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/game_feel_flow/plugin.cfg")
 
 [rendering]
 

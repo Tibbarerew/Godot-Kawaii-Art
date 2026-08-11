@@ -7,6 +7,7 @@
 export/
 *.apk
 *.aab
+*.idsig
 *.ipa
 *.pck
 *.zip
